@@ -1,0 +1,132 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Estudiante;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+
+class EstudianteController extends Controller
+{
+    public function index(Request $request)
+    {
+        $q       = trim((string) $request->get('q', ''));
+        $grado   = $request->get('grado');
+        $seccion = $request->get('seccion');
+        $nivel   = $request->get('nivel');
+
+        $estudiantes = Estudiante::query()
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($w) use ($q) {
+                    $w->where('nombres', 'like', "%{$q}%")
+                      ->orWhere('apellidos', 'like', "%{$q}%")
+                      ->orWhere('dni', 'like', "%{$q}%")
+                      ->orWhere('codigo_estudiante', 'like', "%{$q}%");
+                });
+            })
+            ->when($grado, fn ($q2) => $q2->where('grado', $grado))
+            ->when($seccion, fn ($q2) => $q2->where('seccion', $seccion))
+            ->when($nivel, fn ($q2) => $q2->where('nivel', $nivel))
+            ->orderBy('apellidos')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('estudiantes.index', compact(
+            'estudiantes',
+            'q',
+            'grado',
+            'seccion',
+            'nivel'
+        ));
+    }
+
+    public function create()
+    {
+        return view('estudiantes.form', [
+            'estudiante' => new Estudiante()
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $data = $this->validateData($request);
+
+        Estudiante::create($data);
+
+        return redirect()
+            ->route('estudiantes.index')
+            ->with('success', 'Estudiante registrado correctamente.');
+    }
+
+    public function show(Estudiante $estudiante)
+    {
+        return view('estudiantes.show', compact('estudiante'));
+    }
+
+    public function edit(Estudiante $estudiante)
+    {
+        return view('estudiantes.form', compact('estudiante'));
+    }
+
+    public function update(Request $request, Estudiante $estudiante)
+    {
+        $data = $this->validateData($request, $estudiante->id);
+
+        $estudiante->update($data);
+
+        return redirect()
+            ->route('estudiantes.index')
+            ->with('success', 'Estudiante actualizado correctamente.');
+    }
+
+    public function destroy(Estudiante $estudiante)
+    {
+        $estudiante->delete();
+
+        return redirect()
+            ->route('estudiantes.index')
+            ->with('success', 'Estudiante eliminado correctamente.');
+    }
+
+    protected function validateData(Request $request, ?int $id = null): array
+    {
+        return $request->validate([
+            'codigo_estudiante' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('estudiantes', 'codigo_estudiante')->ignore($id)
+            ],
+
+            'dni' => [
+                'required',
+                'string',
+                'max:15',
+                Rule::unique('estudiantes', 'dni')->ignore($id)
+            ],
+
+            'nombres'   => ['required', 'string', 'max:100'],
+            'apellidos' => ['required', 'string', 'max:100'],
+
+            'sexo' => ['required', 'in:M,F'],
+
+            'fecha_nacimiento' => ['nullable', 'date'],
+
+            // TU BD: tinyint
+            'grado' => ['required', 'integer'],
+
+            'seccion' => ['required', 'string', 'max:5'],
+
+            // IMPORTANTE: minúsculas según tu BD
+            'nivel' => ['required', 'in:inicial,primaria,secundaria'],
+
+            // IMPORTANTE: enum minúsculas según tu BD
+            'turno' => ['nullable', 'in:mañana,tarde,noche'],
+
+            'direccion' => ['nullable', 'string', 'max:255'],
+            'telefono'  => ['nullable', 'string', 'max:20'],
+
+            'anio_escolar_id' => ['required', 'integer'],
+        ]);
+    }
+}
