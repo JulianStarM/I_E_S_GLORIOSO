@@ -27,11 +27,11 @@
 
             <div class="col-md-4">
                 <label class="form-label">Codigo</label>
-                <input type="text" name="codigo" class="form-control" value="{{ old('codigo', $estudiante->codigo) }}">
+                <input type="text" name="codigo_estudiante" class="form-control" value="{{ old('codigo_estudiante', $estudiante->codigo_estudiante) }}">
             </div>
             <div class="col-md-4">
                 <label class="form-label">DNI</label>
-                <input type="text" name="dni" class="form-control" value="{{ old('dni', $estudiante->dni) }}">
+                <input type="text" name="dni" id="dni" class="form-control" value="{{ old('dni', $estudiante->dni) }}">
             </div>
             <div class="col-md-4">
                 <label class="form-label">Fecha de nacimiento</label>
@@ -40,11 +40,11 @@
 
             <div class="col-md-6">
                 <label class="form-label">Nombres *</label>
-                <input type="text" name="nombres" class="form-control" value="{{ old('nombres', $estudiante->nombres) }}" required>
+                <input type="text" name="nombres" id="nombres" class="form-control" value="{{ old('nombres', $estudiante->nombres) }}" required>
             </div>
             <div class="col-md-6">
                 <label class="form-label">Apellidos *</label>
-                <input type="text" name="apellidos" class="form-control" value="{{ old('apellidos', $estudiante->apellidos) }}" required>
+                <input type="text" name="apellidos" id="apellidos" class="form-control" value="{{ old('apellidos', $estudiante->apellidos) }}" required>
             </div>
 
             <div class="col-md-3">
@@ -58,8 +58,8 @@
             <div class="col-md-3">
                 <label class="form-label">Nivel *</label>
                 <select name="nivel" class="form-select" required>
-                    @foreach(['Inicial','Primaria','Secundaria'] as $n)
-                        <option value="{{ $n }}" @selected(old('nivel', $estudiante->nivel) === $n)>{{ $n }}</option>
+                    @foreach(['inicial','primaria','secundaria'] as $n)
+                        <option value="{{ $n }}" @selected(old('nivel', $estudiante->nivel) === $n)>{{ ucfirst($n) }}</option>
                     @endforeach
                 </select>
             </div>
@@ -75,8 +75,8 @@
                 <label class="form-label">Turno</label>
                 <select name="turno" class="form-select">
                     <option value="">--</option>
-                    @foreach(['Mañana','Tarde','Noche'] as $t)
-                        <option value="{{ $t }}" @selected(old('turno', $estudiante->turno) === $t)>{{ $t }}</option>
+                    @foreach(['mañana','tarde','noche'] as $t)
+                        <option value="{{ $t }}" @selected(old('turno', $estudiante->turno) === $t)>{{ ucfirst($t) }}</option>
                     @endforeach
                 </select>
             </div>
@@ -96,7 +96,7 @@
 
             <div class="col-md-3">
                 <label class="form-label">Año escolar (ID)</label>
-                <input type="number" name="anio_escolar_id" class="form-control" value="{{ old('anio_escolar_id', $estudiante->anio_escolar_id) }}">
+                <input type="number" name="id_anio_escolar" class="form-control" value="{{ old('id_anio_escolar', $estudiante->id_anio_escolar) }}">
             </div>
 
             <div class="col-12">
@@ -113,4 +113,5 @@
         </form>
     </div>
 </div>
+
 @endsection

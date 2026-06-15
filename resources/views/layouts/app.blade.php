@@ -7,70 +7,154 @@
     <title>@yield('title', 'Banco de Libros') | GSC Puno</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
-    @stack('styles')
-</head>
-<body>
-<div class="app-wrapper">
+    
+    <!-- Tailwind CSS (CDN para evitar problemas con Vite/XAMPP) -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- Vite (opcional, lo dejamos por si acaso) -->
+    @vite(['resources/js/app.js'])
+    @stack('styles')
+    
+    <style>
+        /* Tooltip simple para la versión colapsada */
+        [data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-left: 0.5rem;
+            background-color: #1e293b;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 50;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-slate-900 font-sans antialiased overflow-hidden">
+
+<div id="sidebar-wrapper" class="group/sidebar-wrapper flex h-screen w-full" data-state="expanded">
+    
     {{-- ============ SIDEBAR ============ --}}
-    <aside class="app-sidebar" id="appSidebar">
-        <div class="sidebar-brand">
-            <i class="bi bi-book-half"></i>
-            <div>
-                <strong>Banco de Libros</strong>
-                <small>I.E. Glorioso San Carlos</small>
+    <!-- Mobile overlay -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden"></div>
+
+    <aside id="appSidebar" class="fixed inset-y-0 left-0 z-50 flex h-full flex-col bg-slate-900 text-slate-300 transition-all duration-200 ease-linear 
+        -translate-x-full md:translate-x-0 md:static 
+        w-64 group-data-[state=collapsed]/sidebar-wrapper:w-[3.5rem]">
+        
+        <!-- Sidebar Header -->
+        <div class="flex items-center gap-3 p-3 h-16 flex-shrink-0 overflow-hidden bg-slate-950/50">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                <i data-lucide="book-marked" class="h-5 w-5"></i>
             </div>
+            <div class="flex flex-col min-w-0 flex-1 whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">
+                <p class="truncate text-base font-bold text-white tracking-wide">Banco de Libros</p>
+                <p class="truncate text-[11px] text-slate-400 font-medium">I.E. Glorioso San Carlos</p>
+            </div>
+            <!-- Mobile close button -->
+            <button id="closeSidebar" class="ml-auto md:hidden text-slate-400 hover:text-white shrink-0">
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
         </div>
 
-        <nav class="sidebar-nav">
-            <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                <i class="bi bi-speedometer2"></i> Dashboard
-            </a>
-            <a href="{{ route('usuarios.index') }}" class="nav-link {{ request()->routeIs('usuarios.*') ? 'active' : '' }}">
-                <i class="bi bi-people"></i> Usuarios
-            </a>
-            <a href="{{ route('estudiantes.index') }}" class="nav-link {{ request()->routeIs('estudiantes.*') ? 'active' : '' }}">
-                <i class="bi bi-mortarboard"></i> Estudiantes
-            </a>
-        </nav>
+        <!-- Sidebar Content -->
+        <div class="flex-1 overflow-y-auto py-4 overflow-x-hidden">
+            <div class="px-4 mb-2 whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">
+                <p class="text-xs font-semibold text-slate-500">Gestión</p>
+            </div>
+            
+            <nav class="space-y-1.5 px-3">
+                <a href="{{ route('dashboard') }}" data-tooltip="Dashboard" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 relative {{ request()->routeIs('dashboard') ? 'bg-blue-600/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <i data-lucide="layout-dashboard" class="h-5 w-5 shrink-0 {{ request()->routeIs('dashboard') ? 'text-blue-500' : '' }}"></i>
+                    <span class="whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">Dashboard</span>
+                </a>
+                <a href="{{ route('estudiantes.index') }}" data-tooltip="Estudiantes" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 relative {{ request()->routeIs('estudiantes.*') ? 'bg-blue-600/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <i data-lucide="graduation-cap" class="h-5 w-5 shrink-0 {{ request()->routeIs('estudiantes.*') ? 'text-blue-500' : '' }}"></i>
+                    <span class="whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">Estudiantes</span>
+                </a>
+                <a href="{{ route('libros.index') }}" data-tooltip="Libros" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 relative {{ request()->routeIs('libros.*') ? 'bg-blue-600/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <i data-lucide="book-open" class="h-5 w-5 shrink-0 {{ request()->routeIs('libros.*') ? 'text-blue-500' : '' }}"></i>
+                    <span class="whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">Libros</span>
+                </a>
+                <a href="{{ route('entregas.index') }}" data-tooltip="Entregas" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 relative {{ request()->routeIs('entregas.*') ? 'bg-blue-600/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <i data-lucide="clipboard-list" class="h-5 w-5 shrink-0 {{ request()->routeIs('entregas.*') ? 'text-blue-500' : '' }}"></i>
+                    <span class="whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">Entregas</span>
+                </a>
+                <a href="#" data-tooltip="Reportes" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 relative text-slate-400 hover:bg-slate-800 hover:text-white">
+                    <i data-lucide="file-text" class="h-5 w-5 shrink-0"></i>
+                    <span class="whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">Reportes</span>
+                </a>
+                
+                @if(auth()->user() && (auth()->user()->rol === 'Administrador' || auth()->user()->rol === 'Admin'))
+                <a href="{{ route('usuarios.index') }}" data-tooltip="Usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 relative {{ request()->routeIs('usuarios.*') ? 'bg-blue-600/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <i data-lucide="users" class="h-5 w-5 shrink-0 {{ request()->routeIs('usuarios.*') ? 'text-blue-500' : '' }}"></i>
+                    <span class="whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">Usuarios</span>
+                </a>
+                @endif
+            </nav>
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="p-4 border-t border-slate-800 bg-slate-950/30 overflow-hidden mt-auto">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-inner">
+                    {{ strtoupper(substr(auth()->user()->nombres ?? auth()->user()->name ?? 'U', 0, 1)) }}
+                </div>
+                <div class="flex flex-col min-w-0 flex-1 whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">
+                    <p class="truncate text-sm font-semibold text-white leading-tight">{{ auth()->user()->nombres ?? auth()->user()->name ?? 'Administrador GSC' }}</p>
+                    <p class="truncate text-[11px] text-slate-400 mt-0.5">{{ auth()->user()->rol ?? 'Administrador' }}</p>
+                </div>
+            </div>
+            <form method="POST" action="{{ route('logout') }}" class="w-full transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">
+                @csrf
+                <button type="submit" class="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-red-500/10 hover:text-red-400 transition-colors border border-slate-700 hover:border-red-500/30">
+                    <i data-lucide="log-out" class="h-4 w-4 shrink-0"></i>
+                    <span>Cerrar sesión</span>
+                </button>
+            </form>
+            <!-- Minimized logout for collapsed state -->
+            <form method="POST" action="{{ route('logout') }}" class="w-full hidden group-data-[state=collapsed]/sidebar-wrapper:block">
+                @csrf
+                <button type="submit" data-tooltip="Cerrar sesión" class="w-full flex items-center justify-center py-2 text-slate-400 hover:text-red-400 transition-colors">
+                    <i data-lucide="log-out" class="h-5 w-5 shrink-0"></i>
+                </button>
+            </form>
+        </div>
     </aside>
 
-    {{-- ============ NAVBAR + CONTENT ============ --}}
-    <div class="app-main">
-        <nav class="app-navbar">
-            <button class="btn btn-sm btn-light" id="toggleSidebar"><i class="bi bi-list"></i></button>
-            <h6 class="mb-0 ms-2 text-muted">@yield('page-title', 'Panel administrativo')</h6>
-
-            <div class="ms-auto dropdown">
-                <button class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown">
-                    <i class="bi bi-person-circle"></i> {{ auth()->user()->nombre_completo ?? auth()->user()->email }}
+    {{-- ============ MAIN CONTENT ============ --}}
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f5f7fb] relative">
+        
+        <!-- Toggle Button -->
+        <header class="h-16 flex items-center px-6 border-b border-slate-200 bg-white justify-between shrink-0 shadow-sm z-10">
+            <div class="flex items-center gap-4">
+                <button class="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors" id="toggleSidebar">
+                    <i data-lucide="menu" class="h-5 w-5"></i>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><span class="dropdown-item-text small text-muted">{{ auth()->user()->rol ?? 'Administrador' }}</span></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button class="dropdown-item text-danger" type="submit">
-                                <i class="bi bi-box-arrow-right"></i> Cerrar sesion
-                            </button>
-                        </form>
-                    </li>
-                </ul>
+                <div class="h-6 w-px bg-slate-200 hidden md:block"></div>
+                <h1 class="text-base font-semibold text-slate-800 m-0 hidden md:block tracking-tight">Sistema de Banco de Libros</h1>
             </div>
-        </nav>
+            
+            <div class="flex items-center">
+            </div>
+        </header>
 
-        <main class="app-content">
+        <!-- Content Area -->
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50">
             @if (session('success'))
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
                     {{ session('success') }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             @endif
             @if (session('error'))
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
                     {{ session('error') }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
@@ -82,6 +166,61 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+    lucide.createIcons();
+    
+    // Sidebar Toggle Logic for Tailwind simulating shadcn/ui behavior
+    document.addEventListener('DOMContentLoaded', () => {
+        const wrapper = document.getElementById('sidebar-wrapper');
+        const sidebar = document.getElementById('appSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const toggleBtn = document.getElementById('toggleSidebar');
+        const closeBtn = document.getElementById('closeSidebar');
+
+        // Check local storage for sidebar state
+        const savedState = localStorage.getItem('sidebar_state') || 'expanded';
+        if (window.innerWidth >= 768) {
+            wrapper.setAttribute('data-state', savedState);
+        }
+
+        function toggleSidebar() {
+            if (window.innerWidth < 768) {
+                // Mobile: slide in/out
+                sidebar.classList.toggle('-translate-x-full');
+                overlay.classList.toggle('hidden');
+            } else {
+                // Desktop: collapse to icon
+                const currentState = wrapper.getAttribute('data-state');
+                const newState = currentState === 'expanded' ? 'collapsed' : 'expanded';
+                wrapper.setAttribute('data-state', newState);
+                localStorage.setItem('sidebar_state', newState);
+            }
+        }
+        
+        // Disable tooltips in expanded mode using CSS logic:
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .group\\/sidebar-wrapper[data-state="expanded"] [data-tooltip]:hover::after {
+                display: none;
+            }
+        `;
+        document.head.appendChild(style);
+
+        if(toggleBtn) toggleBtn.addEventListener('click', toggleSidebar);
+        if(closeBtn) closeBtn.addEventListener('click', toggleSidebar);
+        if(overlay) overlay.addEventListener('click', toggleSidebar);
+
+        // Keyboard shortcut 'Ctrl+B' or 'Cmd+B'
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'b' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                toggleSidebar();
+            }
+        });
+    });
+</script>
 <script src="{{ asset('js/app.js') }}"></script>
 @stack('scripts')
 </body>

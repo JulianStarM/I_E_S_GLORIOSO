@@ -54,9 +54,13 @@ class EntregaController extends Controller
         $request->validate([
             'id_estudiante' => ['required', 'exists:estudiantes,id'],
             'tipo_firmante' => ['required', 'in:estudiante,apoderado'],
+            'apoderado_dni' => ['required_if:tipo_firmante,apoderado', 'nullable', 'string', 'max:15'],
+            'apoderado_nombres' => ['required_if:tipo_firmante,apoderado', 'nullable', 'string', 'max:255'],
+            'apoderado_apellidos' => ['required_if:tipo_firmante,apoderado', 'nullable', 'string', 'max:255'],
+            'apoderado_parentesco' => ['required_if:tipo_firmante,apoderado', 'nullable', 'string', 'max:100'],
+            'apoderado_telefono' => ['nullable', 'string', 'max:20'],
             'libros' => ['required', 'array', 'min:1'],
-            'libros.*.id_libro' => ['required', 'exists:libros,id'],
-            'libros.*.cantidad' => ['required', 'integer', 'min:1'],
+            'libros.*' => ['required', 'exists:libros,id'],
             'observaciones' => ['nullable', 'string'],
         ]);
 
@@ -64,12 +68,46 @@ class EntregaController extends Controller
         if (! $anioActual) {
             return back()->with('error', 'No hay un año escolar activo.')->withInput();
         }
+        
+        $estudiante = Estudiante::findOrFail($request->input('id_estudiante'));
+        
+        // Verificar si ya tiene entrega en el anio actual
+        $entregaExistente = Entrega::where('id_estudiante', $estudiante->id)
+            ->where('id_anio_escolar', $anioActual->id)
+            ->where('estado', 'completada')
+            ->first();
+            
+        if ($entregaExistente) {
+            return back()->with('error', 'El estudiante ya tiene una entrega registrada ('.$entregaExistente->codigo_general.').')->withInput();
+        }
 
         DB::beginTransaction();
         try {
+            $idPadre = null;
+            if ($request->input('tipo_firmante') === 'apoderado') {
+                $padre = \App\Models\PadreApoderado::firstOrCreate(
+                    ['dni' => $request->input('apoderado_dni')],
+                    [
+                        'nombres' => $request->input('apoderado_nombres'),
+                        'apellidos' => $request->input('apoderado_apellidos'),
+                        'telefono' => $request->input('apoderado_telefono'),
+                    ]
+                );
+                $idPadre = $padre->id;
+                
+                // Relacionar si no existe
+                if (!$estudiante->padres()->where('id_padre', $padre->id)->exists()) {
+                    $estudiante->padres()->attach($padre->id, [
+                        'parentesco' => $request->input('apoderado_parentesco'),
+                        'es_principal' => true
+                    ]);
+                }
+            }
+
             $entrega = Entrega::create([
                 'codigo_general' => Entrega::generarCodigo($anioActual->anio),
-                'id_estudiante' => $request->input('id_estudiante'),
+                'id_estudiante' => $estudiante->id,
+                'id_padre' => $idPadre,
                 'id_anio_escolar' => $anioActual->id,
                 'id_usuario_registro' => auth()->id(),
                 'tipo_firmante' => $request->input('tipo_firmante'),
@@ -83,9 +121,9 @@ class EntregaController extends Controller
 
             $totalLibros = 0;
             $orden = 1;
-            foreach ($request->input('libros') as $libroData) {
-                $libro = Libro::findOrFail($libroData['id_libro']);
-                $cantidad = (int) $libroData['cantidad'];
+            foreach ($request->input('libros') as $idLibro) {
+                $libro = Libro::findOrFail($idLibro);
+                $cantidad = 1; // 1 libro de cada materia
 
                 if (! $libro->tieneStock($cantidad)) {
                     DB::rollBack();
@@ -96,7 +134,7 @@ class EntregaController extends Controller
                     'id_entrega' => $entrega->id,
                     'id_libro' => $libro->id,
                     'cantidad' => $cantidad,
-                    'estado_entrega' => 'entregado',
+                    'entregas' => 'bueno',
                     'numero_orden' => $orden++,
                 ]);
 
@@ -149,7 +187,20 @@ class EntregaController extends Controller
                     ->orWhere('nombres', 'like', "%{$buscar}%")
                     ->orWhere('dni', 'like', "%{$buscar}%");
             })
-            ->limit(20)->get(['id', 'codigo_estudiante', 'dni', 'nombres', 'apellidos', 'grado', 'seccion']);
+            ->limit(20)->get(['id', 'codigo_estudiante', 'dni', 'nombres', 'apellidos', 'grado', 'seccion', 'nivel', 'id_anio_escolar']);
+
+        $anioActual = AnioEscolar::actual();
+        $estudiantes->map(function ($estudiante) use ($anioActual) {
+            $estudiante->tiene_entrega = false;
+            if ($anioActual) {
+                $estudiante->tiene_entrega = Entrega::where('id_estudiante', $estudiante->id)
+                    ->where('id_anio_escolar', $anioActual->id)
+                    ->where('estado', 'completada')
+                    ->exists();
+            }
+            return $estudiante;
+        });
+
         return response()->json($estudiantes);
     }
 
@@ -159,9 +210,13 @@ class EntregaController extends Controller
     public function librosPorGrado(Request $request): JsonResponse
     {
         $grado = (int) $request->input('grado', 0);
+        $nivel = $request->input('nivel', '');
+        
         $libros = Libro::activos()->conStock()
             ->when($grado, fn ($q) => $q->where('grado', $grado))
-            ->orderBy('area')->get(['id', 'codigo_libro', 'nombre', 'area', 'grado', 'cantidad_disponible']);
+            ->when($nivel, fn ($q) => $q->where('nivel', $nivel))
+            ->orderBy('area')->get(['id', 'codigo_libro', 'nombre', 'area', 'grado', 'cantidad_disponible', 'tipo_material']);
+            
         return response()->json($libros);
     }
 }

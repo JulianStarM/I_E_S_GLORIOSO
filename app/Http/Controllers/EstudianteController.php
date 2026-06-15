@@ -50,6 +50,8 @@ class EstudianteController extends Controller
     public function store(Request $request)
     {
         $data = $this->validateData($request);
+        $data['id_institucion'] = 1; // Valor por defecto
+        $data['estado'] = $request->has('estado') ? 'activo' : 'retirado';
 
         Estudiante::create($data);
 
@@ -71,6 +73,7 @@ class EstudianteController extends Controller
     public function update(Request $request, Estudiante $estudiante)
     {
         $data = $this->validateData($request, $estudiante->id);
+        $data['estado'] = $request->has('estado') ? 'activo' : 'retirado';
 
         $estudiante->update($data);
 
@@ -126,7 +129,29 @@ class EstudianteController extends Controller
             'direccion' => ['nullable', 'string', 'max:255'],
             'telefono'  => ['nullable', 'string', 'max:20'],
 
-            'anio_escolar_id' => ['required', 'integer'],
+            'id_anio_escolar' => ['required', 'integer'],
         ]);
+    }
+
+    public function buscarDni(Request $request)
+    {
+        $request->validate(['dni' => 'required|string|size:8']);
+        $dni = $request->dni;
+
+        // Intentar usar el API gratuito de apis.net.pe v1
+        $response = \Illuminate\Support\Facades\Http::withoutVerifying()->get("https://api.apis.net.pe/v1/dni?numero={$dni}");
+        
+        if ($response->successful() && !isset($response['error'])) {
+            return response()->json([
+                'success' => true,
+                'nombres' => $response['nombres'] ?? '',
+                'apellidos' => trim(($response['apellidoPaterno'] ?? '') . ' ' . ($response['apellidoMaterno'] ?? ''))
+            ]);
+        }
+
+        // Intento con otro endpoint en caso el primero falle
+        $response2 = \Illuminate\Support\Facades\Http::withoutVerifying()->get("https://dniruc.apisperu.com/api/v1/dni/{$dni}?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6InZhbGxlc21hcnRpbjkwQGdtYWlsLmNvbSJ9...."); // Placeholder if they want to use one, but let's just return error for now.
+        
+        return response()->json(['success' => false, 'message' => 'No se encontró el DNI o la API está inactiva'], 404);
     }
 }
