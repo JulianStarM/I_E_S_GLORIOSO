@@ -17,11 +17,16 @@
         </div>
 
         <div class="flex gap-2">
+            <a href="{{ route('entregas.constancia', $entrega) }}"
+                class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors">
+                <i data-lucide="file-text" class="h-4 w-4"></i>
+                Generar Constancia de Entrega
+            </a>
             <button
                 class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-sm transition-colors"
                 onclick="window.print()">
                 <i data-lucide="printer" class="h-4 w-4"></i>
-                Imprimir Constancia
+                Imprimir página
             </button>
             <a href="{{ route('entregas.index') }}"
                 class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors">

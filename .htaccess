@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # If the requested file or directory exists, serve it directly.
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Otherwise, redirect all traffic to the public folder.
+    RewriteRule ^ public%{REQUEST_URI} [L,PT]
+</IfModule>

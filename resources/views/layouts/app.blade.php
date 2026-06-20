@@ -17,6 +17,11 @@
     @stack('styles')
     
     <style>
+        /* Aumentar ligeramente el tamaño base para escalar textos, iconos y paddings (105-110%) */
+        html {
+            font-size: 108%; 
+        }
+        
         /* Tooltip simple para la versión colapsada */
         [data-tooltip]:hover::after {
             content: attr(data-tooltip);
@@ -29,7 +34,7 @@
             color: white;
             padding: 0.25rem 0.5rem;
             border-radius: 0.375rem;
-            font-size: 0.75rem;
+            font-size: 0.85rem;
             white-space: nowrap;
             z-index: 50;
             pointer-events: none;
@@ -86,8 +91,8 @@
                     <i data-lucide="clipboard-list" class="h-5 w-5 shrink-0 {{ request()->routeIs('entregas.*') ? 'text-blue-500' : '' }}"></i>
                     <span class="whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">Entregas</span>
                 </a>
-                <a href="#" data-tooltip="Reportes" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 relative text-slate-400 hover:bg-slate-800 hover:text-white">
-                    <i data-lucide="file-text" class="h-5 w-5 shrink-0"></i>
+                <a href="{{ route('reportes.index') }}" data-tooltip="Reportes" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 relative {{ request()->routeIs('reportes.*') ? 'bg-blue-600/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                    <i data-lucide="file-text" class="h-5 w-5 shrink-0 {{ request()->routeIs('reportes.*') ? 'text-blue-500' : '' }}"></i>
                     <span class="whitespace-nowrap transition-opacity duration-200 group-data-[state=collapsed]/sidebar-wrapper:opacity-0 group-data-[state=collapsed]/sidebar-wrapper:hidden">Reportes</span>
                 </a>
                 

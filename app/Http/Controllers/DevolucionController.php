@@ -8,6 +8,8 @@ use App\Models\DetalleDevolucion;
 use App\Models\Devolucion;
 use App\Models\Entrega;
 use App\Models\InventarioMovimiento;
+use App\Models\Libro;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,9 +28,12 @@ class DevolucionController extends Controller
                         ->orWhere('dni', 'like', "%{$buscar}%"));
             });
         }
-        if ($request->filled('estado')) { $query->where('estado', $request->input('estado')); }
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->input('estado'));
+        }
 
         $devoluciones = $query->orderByDesc('fecha_devolucion')->paginate(20)->withQueryString();
+
         return view('devoluciones.index', compact('devoluciones'));
     }
 
@@ -41,6 +46,7 @@ class DevolucionController extends Controller
         $entregasPendientes = Entrega::with('estudiante')
             ->completadas()->sinDevolucion()
             ->orderByDesc('fecha_entrega')->get();
+
         return view('devoluciones.create', compact('entrega', 'entregasPendientes'));
     }
 
@@ -65,8 +71,10 @@ class DevolucionController extends Controller
         $anioActual = AnioEscolar::actual();
         DB::beginTransaction();
         try {
-            $totalDevueltos = 0; $totalNoDevueltos = 0;
-            $totalDeficientes = 0; $totalPerdidos = 0;
+            $totalDevueltos = 0;
+            $totalNoDevueltos = 0;
+            $totalDeficientes = 0;
+            $totalPerdidos = 0;
 
             $devolucion = Devolucion::create([
                 'codigo_general' => Devolucion::generarCodigo($anioActual?->anio ?? date('Y')),
@@ -91,7 +99,7 @@ class DevolucionController extends Controller
                     'observaciones' => $detalle['observaciones'] ?? null,
                 ]);
 
-                $libro = \App\Models\Libro::findOrFail($detalle['id_libro']);
+                $libro = Libro::findOrFail($detalle['id_libro']);
                 $estado = $detalle['estado_libro'];
 
                 if (in_array($estado, ['bueno', 'deteriorado'])) {
@@ -146,13 +154,30 @@ class DevolucionController extends Controller
                 ->with('success', "Devolución {$devolucion->codigo_general} registrada.");
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error: ' . $e->getMessage())->withInput();
+
+            return back()->with('error', 'Error: '.$e->getMessage())->withInput();
         }
     }
 
     public function show(Devolucion $devolucion): View
     {
         $devolucion->load(['estudiante', 'entrega.detalles.libro', 'detalles.libro', 'usuarioRegistro']);
+
         return view('devoluciones.show', compact('devolucion'));
+    }
+
+    public function constancia(Devolucion $devolucion)
+    {
+        $devolucion->load(['estudiante', 'padre', 'entrega.detalles.libro', 'detalles.libro', 'usuarioRegistro']);
+
+        $logoPath = 'file://'.str_replace('\\', '/', public_path('glorioso.png'));
+        $pdf = Pdf::loadView('reportes.constancia-devolucion', [
+            'devolucion' => $devolucion,
+            'logo' => $logoPath,
+            'fechaEmision' => now()->format('d/m/Y H:i'),
+            'constanciaCodigo' => $devolucion->codigo_general,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download("CONSTANCIA_DEVOLUCION_{$devolucion->codigo_general}.pdf");
     }
 }

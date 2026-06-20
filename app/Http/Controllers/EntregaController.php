@@ -9,6 +9,8 @@ use App\Models\Entrega;
 use App\Models\Estudiante;
 use App\Models\InventarioMovimiento;
 use App\Models\Libro;
+use App\Models\PadreApoderado;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,12 +31,49 @@ class EntregaController extends Controller
                         ->orWhere('dni', 'like', "%{$buscar}%"));
             });
         }
-        if ($request->filled('estado')) { $query->where('estado', $request->input('estado')); }
-        if ($request->filled('fecha_desde')) { $query->where('fecha_entrega', '>=', $request->input('fecha_desde')); }
-        if ($request->filled('fecha_hasta')) { $query->where('fecha_entrega', '<=', $request->input('fecha_hasta')); }
+        if ($request->filled('grado')) {
+            $query->whereHas('estudiante', fn ($sq) => $sq->where('grado', $request->input('grado')));
+        }
+        if ($request->filled('seccion')) {
+            $query->whereHas('estudiante', fn ($sq) => $sq->where('seccion', $request->input('seccion')));
+        }
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->input('estado'));
+        }
+        if ($request->filled('fecha_desde')) {
+            $query->where('fecha_entrega', '>=', $request->input('fecha_desde'));
+        }
+        if ($request->filled('fecha_hasta')) {
+            $query->where('fecha_entrega', '<=', $request->input('fecha_hasta'));
+        }
+
+        $summaryQuery = (clone $query);
+        $totalEstudiantes = Estudiante::activos()->count();
+        $totalLibros = Libro::activos()->sum('cantidad_disponible');
+        $totalEntregas = $summaryQuery->count();
+        $librosEntregados = (clone $summaryQuery)->sum('total_libros');
+        $estudiantesConEntrega = (clone $summaryQuery)->distinct('id_estudiante')->count('id_estudiante');
+        $estudiantesPendientes = max(0, $totalEstudiantes - $estudiantesConEntrega);
+        $avance = $totalEstudiantes === 0 ? 0 : (int) round(($estudiantesConEntrega / $totalEstudiantes) * 100);
+
+        $entregasPorGrado = (clone $summaryQuery)->get()->groupBy(fn ($entrega) => $entrega->estudiante?->grado ? $entrega->estudiante->grado.'°' : 'Sin grado')->map->count();
+        $gradoOptions = Estudiante::activos()->distinct('grado')->orderBy('grado')->pluck('grado');
+        $seccionOptions = Estudiante::activos()->distinct('seccion')->orderBy('seccion')->pluck('seccion');
 
         $entregas = $query->orderByDesc('fecha_entrega')->orderByDesc('id')->paginate(20)->withQueryString();
-        return view('entregas.index', compact('entregas'));
+
+        return view('entregas.index', compact(
+            'entregas',
+            'totalEstudiantes',
+            'totalLibros',
+            'totalEntregas',
+            'librosEntregados',
+            'estudiantesPendientes',
+            'avance',
+            'entregasPorGrado',
+            'gradoOptions',
+            'seccionOptions'
+        ));
     }
 
     public function create(): View
@@ -46,6 +85,7 @@ class EntregaController extends Controller
         $libros = Libro::activos()->conStock()
             ->when($anioActual, fn ($q) => $q->where('id_anio_escolar', $anioActual->id))
             ->orderBy('grado')->orderBy('area')->get();
+
         return view('entregas.create', compact('estudiantes', 'libros', 'anioActual'));
     }
 
@@ -68,15 +108,15 @@ class EntregaController extends Controller
         if (! $anioActual) {
             return back()->with('error', 'No hay un año escolar activo.')->withInput();
         }
-        
+
         $estudiante = Estudiante::findOrFail($request->input('id_estudiante'));
-        
+
         // Verificar si ya tiene entrega en el anio actual
         $entregaExistente = Entrega::where('id_estudiante', $estudiante->id)
             ->where('id_anio_escolar', $anioActual->id)
             ->where('estado', 'completada')
             ->first();
-            
+
         if ($entregaExistente) {
             return back()->with('error', 'El estudiante ya tiene una entrega registrada ('.$entregaExistente->codigo_general.').')->withInput();
         }
@@ -85,7 +125,7 @@ class EntregaController extends Controller
         try {
             $idPadre = null;
             if ($request->input('tipo_firmante') === 'apoderado') {
-                $padre = \App\Models\PadreApoderado::firstOrCreate(
+                $padre = PadreApoderado::firstOrCreate(
                     ['dni' => $request->input('apoderado_dni')],
                     [
                         'nombres' => $request->input('apoderado_nombres'),
@@ -94,12 +134,12 @@ class EntregaController extends Controller
                     ]
                 );
                 $idPadre = $padre->id;
-                
+
                 // Relacionar si no existe
-                if (!$estudiante->padres()->where('id_padre', $padre->id)->exists()) {
+                if (! $estudiante->padres()->where('id_padre', $padre->id)->exists()) {
                     $estudiante->padres()->attach($padre->id, [
                         'parentesco' => $request->input('apoderado_parentesco'),
-                        'es_principal' => true
+                        'es_principal' => true,
                     ]);
                 }
             }
@@ -127,6 +167,7 @@ class EntregaController extends Controller
 
                 if (! $libro->tieneStock($cantidad)) {
                     DB::rollBack();
+
                     return back()->with('error', "Sin stock suficiente para: {$libro->nombre}")->withInput();
                 }
 
@@ -165,14 +206,31 @@ class EntregaController extends Controller
                 ->with('success', "Entrega {$entrega->codigo_general} registrada ({$totalLibros} libros).");
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al registrar entrega: ' . $e->getMessage())->withInput();
+
+            return back()->with('error', 'Error al registrar entrega: '.$e->getMessage())->withInput();
         }
     }
 
     public function show(Entrega $entrega): View
     {
         $entrega->load(['estudiante', 'anioEscolar', 'usuarioRegistro', 'detalles.libro', 'devolucion']);
+
         return view('entregas.show', compact('entrega'));
+    }
+
+    public function constancia(Entrega $entrega)
+    {
+        $entrega->load(['estudiante', 'padre', 'anioEscolar', 'usuarioRegistro', 'detalles.libro']);
+
+        $logoPath = 'file://'.str_replace('\\', '/', public_path('glorioso.png'));
+        $pdf = Pdf::loadView('reportes.constancia-entrega', [
+            'entrega' => $entrega,
+            'logo' => $logoPath,
+            'fechaEmision' => now()->format('d/m/Y H:i'),
+            'constanciaCodigo' => $entrega->codigo_general,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download("CONSTANCIA_ENTREGA_{$entrega->codigo_general}.pdf");
     }
 
     /**
@@ -198,6 +256,7 @@ class EntregaController extends Controller
                     ->where('estado', 'completada')
                     ->exists();
             }
+
             return $estudiante;
         });
 
@@ -211,12 +270,12 @@ class EntregaController extends Controller
     {
         $grado = (int) $request->input('grado', 0);
         $nivel = $request->input('nivel', '');
-        
+
         $libros = Libro::activos()->conStock()
             ->when($grado, fn ($q) => $q->where('grado', $grado))
             ->when($nivel, fn ($q) => $q->where('nivel', $nivel))
             ->orderBy('area')->get(['id', 'codigo_libro', 'nombre', 'area', 'grado', 'cantidad_disponible', 'tipo_material']);
-            
+
         return response()->json($libros);
     }
 }
