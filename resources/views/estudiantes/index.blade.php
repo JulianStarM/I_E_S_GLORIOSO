@@ -15,10 +15,10 @@
         <p class="text-sm text-slate-500 mt-1">Administra el registro y datos de los estudiantes</p>
     </div>
     
-    <a href="{{ route('estudiantes.create') }}" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+    <button type="button" onclick="openModal('modalNuevoEstudiante')" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
         <i data-lucide="plus" class="h-4 w-4"></i>
         Nuevo estudiante
-    </a>
+    </button>
 </div>
 
 <!-- Filters -->
@@ -151,5 +151,70 @@
     </div>
     @endif
 </div>
+
+{{-- =============== MODAL NUEVO ESTUDIANTE =============== --}}
+<div id="modalNuevoEstudiante" class="fixed inset-0 z-[999] hidden" role="dialog" aria-modal="true">
+    <div class="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 opacity-0" onclick="closeModal('modalNuevoEstudiante')"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div class="modal-panel pointer-events-auto w-full max-w-3xl bg-white rounded-2xl shadow-2xl transform transition-all duration-300 scale-95 opacity-0 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="graduation-cap" class="h-5 w-5 text-blue-600"></i>
+                    Nuevo Estudiante
+                </h3>
+                <button type="button" onclick="closeModal('modalNuevoEstudiante')" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto px-6 py-4">
+                <form id="formNuevoEstudiante" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Código *</label><input type="text" name="codigo_estudiante" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500" required></div>
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">DNI *</label><input type="text" name="dni" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500" required maxlength="15"></div>
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Fecha nacimiento</label><input type="date" name="fecha_nacimiento" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Nombres *</label><input type="text" name="nombres" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500" required></div>
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Apellidos *</label><input type="text" name="apellidos" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500" required></div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Sexo *</label>
+                            <select name="sexo" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" required><option value="M">Masculino</option><option value="F">Femenino</option></select>
+                        </div>
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Nivel *</label>
+                            <select name="nivel" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" required><option value="secundaria">Secundaria</option><option value="primaria">Primaria</option><option value="inicial">Inicial</option></select>
+                        </div>
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Grado *</label><input type="number" name="grado" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" required min="1" max="6"></div>
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Sección *</label><input type="text" name="seccion" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" required maxlength="5" placeholder="A"></div>
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Turno</label>
+                            <select name="turno" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="">--</option><option value="mañana">Mañana</option><option value="tarde">Tarde</option></select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Dirección</label><input type="text" name="direccion" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></div>
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Teléfono</label><input type="text" name="telefono" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></div>
+                        <div><label class="block text-xs font-medium text-slate-600 mb-1">Año Escolar (ID)</label><input type="number" name="id_anio_escolar" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value="1"></div>
+                    </div>
+                    <div><label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="estado" value="1" checked class="rounded border-slate-300 text-blue-600"> Estudiante activo</label></div>
+                </form>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 shrink-0 flex justify-end gap-3">
+                <button type="button" onclick="closeModal('modalNuevoEstudiante')" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                <button type="button" id="btnGuardarEstudiante" class="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 flex items-center gap-2 btn-submit-modal">
+                    <i data-lucide="save" class="h-4 w-4"></i> Guardar Estudiante
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
+@push('scripts')
+<script>
+document.getElementById('btnGuardarEstudiante')?.addEventListener('click', () => {
+    submitModalForm('formNuevoEstudiante', '{{ route("estudiantes.api.store") }}', 'modalNuevoEstudiante', () => {
+        setTimeout(() => location.reload(), 800);
+    });
+});
+</script>
+@endpush

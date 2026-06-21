@@ -15,10 +15,10 @@
         <p class="text-sm text-slate-500 mt-1">Administra el inventario de libros y materiales educativos.</p>
     </div>
     
-    <a href="{{ route('libros.create') }}" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+    <button type="button" onclick="openModal('modalNuevoLibro')" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
         <i data-lucide="plus" class="h-4 w-4"></i>
         Nuevo Libro
-    </a>
+    </button>
 </div>
 
 <!-- Filtros -->
@@ -165,4 +165,45 @@
     </div>
     @endif
 </div>
+
+{{-- =============== MODAL NUEVO LIBRO =============== --}}
+<div id="modalNuevoLibro" class="fixed inset-0 z-[999] hidden" role="dialog" aria-modal="true">
+    <div class="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 opacity-0" onclick="closeModal('modalNuevoLibro')"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div class="modal-panel pointer-events-auto w-full max-w-4xl bg-white rounded-2xl shadow-2xl transform transition-all duration-300 scale-95 opacity-0 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="book" class="h-5 w-5 text-emerald-600"></i>
+                    Registrar Nuevo Material
+                </h3>
+                <button type="button" onclick="closeModal('modalNuevoLibro')" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto px-6 py-4">
+                <form id="formNuevoLibro" class="space-y-6">
+                    @include('libros.form')
+                </form>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 shrink-0 flex justify-end gap-3">
+                <button type="button" onclick="closeModal('modalNuevoLibro')" class="px-5 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors">
+                    Cancelar
+                </button>
+                <button type="button" id="btnGuardarLibro" class="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-2 btn-submit-modal">
+                    <i data-lucide="save" class="h-4 w-4"></i> Guardar Libro
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
+
+@push('scripts')
+<script>
+document.getElementById('btnGuardarLibro')?.addEventListener('click', () => {
+    submitModalForm('formNuevoLibro', '{{ route("libros.api.store") }}', 'modalNuevoLibro', () => {
+        setTimeout(() => location.reload(), 800);
+    });
+});
+</script>
+@endpush

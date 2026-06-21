@@ -73,6 +73,61 @@ class LibroController extends Controller
         return redirect()->route('libros.index')->with('success', "Libro \"{$libro->nombre}\" registrado.");
     }
 
+    /**
+     * API: Store libro via AJAX (modal form).
+     */
+    public function storeApi(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'codigo_libro' => ['required', 'string', 'max:30', 'unique:libros,codigo_libro'],
+                'nombre' => ['required', 'string', 'max:255'],
+                'tipo_material' => ['required', 'in:libro,cuaderno_trabajo,guia_docente,material_complementario'],
+                'area' => ['required', 'string', 'max:100'],
+                'grado' => ['required', 'integer', 'min:1', 'max:6'],
+                'nivel' => ['required', 'in:inicial,primaria,secundaria'],
+                'editorial' => ['nullable', 'string', 'max:150'],
+                'anio_edicion' => ['nullable', 'integer'],
+                'id_anio_escolar' => ['nullable', 'exists:anios_escolares,id'],
+                'cantidad_total' => ['required', 'integer', 'min:0'],
+                'observaciones' => ['nullable', 'string'],
+            ]);
+            $validated['cantidad_disponible'] = $validated['cantidad_total'];
+            $libro = Libro::create($validated);
+
+            if ($validated['cantidad_total'] > 0) {
+                InventarioMovimiento::create([
+                    'id_libro' => $libro->id, 'tipo_movimiento' => 'ingreso',
+                    'cantidad' => $validated['cantidad_total'], 'cantidad_anterior' => 0,
+                    'cantidad_nueva' => $validated['cantidad_total'],
+                    'referencia_tipo' => 'registro_inicial', 'id_usuario' => auth()->id(),
+                ]);
+            }
+
+            AuditoriaLog::registrar([
+                'accion' => 'crear', 'modulo' => 'libros', 'registro_id' => $libro->id,
+                'descripcion' => "Libro registrado: {$libro->nombre}",
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Libro \"{$libro->nombre}\" registrado correctamente.",
+                'libro' => $libro,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al registrar: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function show(Libro $libro): View
     {
         $libro->load(['movimientos' => fn ($q) => $q->with('usuario')->orderByDesc('created_at')->limit(50)]);

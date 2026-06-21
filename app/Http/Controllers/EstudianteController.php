@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Estudiante;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -89,6 +90,61 @@ class EstudianteController extends Controller
         return redirect()
             ->route('estudiantes.index')
             ->with('success', 'Estudiante eliminado correctamente.');
+    }
+
+    /**
+     * API: Store estudiante via AJAX (modal form).
+     */
+    public function storeApi(Request $request): JsonResponse
+    {
+        try {
+            $data = $this->validateData($request);
+            $data['id_institucion'] = 1;
+            $data['estado'] = $request->has('estado') ? 'activo' : 'retirado';
+
+            $estudiante = Estudiante::create($data);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Estudiante registrado correctamente.',
+                'estudiante' => $estudiante,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al registrar: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * API: Buscar estudiantes (for autocomplete/search).
+     */
+    public function buscarApi(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->get('q', ''));
+        if (strlen($q) < 1) {
+            return response()->json([]);
+        }
+
+        $estudiantes = Estudiante::query()
+            ->where(function ($w) use ($q) {
+                $w->where('nombres', 'like', "%{$q}%")
+                  ->orWhere('apellidos', 'like', "%{$q}%")
+                  ->orWhere('dni', 'like', "%{$q}%")
+                  ->orWhere('codigo_estudiante', 'like', "%{$q}%");
+            })
+            ->orderBy('apellidos')
+            ->limit(20)
+            ->get(['id', 'codigo_estudiante', 'dni', 'nombres', 'apellidos', 'grado', 'seccion', 'nivel', 'id_anio_escolar', 'estado']);
+
+        return response()->json($estudiantes);
     }
 
     protected function validateData(Request $request, ?int $id = null): array

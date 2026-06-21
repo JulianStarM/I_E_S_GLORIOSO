@@ -218,6 +218,148 @@ class EntregaController extends Controller
         return view('entregas.show', compact('entrega'));
     }
 
+    /**
+     * API: Store entrega via AJAX (modal form).
+     */
+    public function storeApi(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'id_estudiante' => ['required', 'exists:estudiantes,id'],
+                'tipo_firmante' => ['required', 'in:estudiante,apoderado'],
+                'apoderado_dni' => ['required_if:tipo_firmante,apoderado', 'nullable', 'string', 'max:15'],
+                'apoderado_nombres' => ['required_if:tipo_firmante,apoderado', 'nullable', 'string', 'max:255'],
+                'apoderado_apellidos' => ['required_if:tipo_firmante,apoderado', 'nullable', 'string', 'max:255'],
+                'apoderado_parentesco' => ['required_if:tipo_firmante,apoderado', 'nullable', 'string', 'max:100'],
+                'apoderado_telefono' => ['nullable', 'string', 'max:20'],
+                'libros' => ['required', 'array', 'min:1'],
+                'libros.*' => ['required', 'exists:libros,id'],
+                'observaciones' => ['nullable', 'string'],
+            ]);
+
+            $anioActual = AnioEscolar::actual();
+            if (! $anioActual) {
+                return response()->json(['success' => false, 'message' => 'No hay un año escolar activo.'], 422);
+            }
+
+            $estudiante = Estudiante::findOrFail($request->input('id_estudiante'));
+
+            $entregaExistente = Entrega::where('id_estudiante', $estudiante->id)
+                ->where('id_anio_escolar', $anioActual->id)
+                ->where('estado', 'completada')
+                ->first();
+
+            if ($entregaExistente) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El estudiante ya tiene una entrega registrada (' . $entregaExistente->codigo_general . ').',
+                ], 422);
+            }
+
+            DB::beginTransaction();
+
+            $idPadre = null;
+            if ($request->input('tipo_firmante') === 'apoderado') {
+                $padre = PadreApoderado::firstOrCreate(
+                    ['dni' => $request->input('apoderado_dni')],
+                    [
+                        'nombres' => $request->input('apoderado_nombres'),
+                        'apellidos' => $request->input('apoderado_apellidos'),
+                        'telefono' => $request->input('apoderado_telefono'),
+                    ]
+                );
+                $idPadre = $padre->id;
+
+                if (! $estudiante->padres()->where('id_padre', $padre->id)->exists()) {
+                    $estudiante->padres()->attach($padre->id, [
+                        'parentesco' => $request->input('apoderado_parentesco'),
+                        'es_principal' => true,
+                    ]);
+                }
+            }
+
+            $entrega = Entrega::create([
+                'codigo_general' => Entrega::generarCodigo($anioActual->anio),
+                'id_estudiante' => $estudiante->id,
+                'id_padre' => $idPadre,
+                'id_anio_escolar' => $anioActual->id,
+                'id_usuario_registro' => auth()->id(),
+                'tipo_firmante' => $request->input('tipo_firmante'),
+                'fecha_entrega' => now()->toDateString(),
+                'hora_entrega' => now()->toTimeString(),
+                'total_libros' => 0,
+                'estado' => 'completada',
+                'observaciones' => $request->input('observaciones'),
+                'ip_registro' => $request->ip(),
+            ]);
+
+            $totalLibros = 0;
+            $orden = 1;
+            foreach ($request->input('libros') as $idLibro) {
+                $libro = Libro::findOrFail($idLibro);
+                $cantidad = 1;
+
+                if (! $libro->tieneStock($cantidad)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Sin stock suficiente para: {$libro->nombre}",
+                    ], 422);
+                }
+
+                DetalleEntrega::create([
+                    'id_entrega' => $entrega->id,
+                    'id_libro' => $libro->id,
+                    'cantidad' => $cantidad,
+                    'entregas' => 'bueno',
+                    'numero_orden' => $orden++,
+                ]);
+
+                $libro->decrement('cantidad_disponible', $cantidad);
+                $libro->increment('cantidad_entregada', $cantidad);
+
+                InventarioMovimiento::create([
+                    'id_libro' => $libro->id, 'tipo_movimiento' => 'entrega',
+                    'cantidad' => -$cantidad,
+                    'cantidad_anterior' => $libro->cantidad_disponible + $cantidad,
+                    'cantidad_nueva' => $libro->cantidad_disponible,
+                    'referencia_tipo' => 'entrega', 'referencia_id' => $entrega->id,
+                    'id_usuario' => auth()->id(),
+                ]);
+
+                $totalLibros += $cantidad;
+            }
+
+            $entrega->update(['total_libros' => $totalLibros]);
+            DB::commit();
+
+            AuditoriaLog::registrar([
+                'accion' => 'crear', 'modulo' => 'entregas', 'registro_id' => $entrega->id,
+                'descripcion' => "Entrega {$entrega->codigo_general}: {$totalLibros} libros",
+            ]);
+
+            $entrega->load('estudiante');
+
+            return response()->json([
+                'success' => true,
+                'message' => "Entrega {$entrega->codigo_general} registrada ({$totalLibros} libros).",
+                'entrega' => $entrega,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al registrar entrega: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function constancia(Entrega $entrega)
     {
         $entrega->load(['estudiante', 'padre', 'anioEscolar', 'usuarioRegistro', 'detalles.libro']);
